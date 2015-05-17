@@ -17,15 +17,13 @@ namespace WebClient
             this.Logger = logger;
         }
 
-        public Task<EventResponse> GetDataAsync(string url)
+        public Task<EventResponse> GetDataAsync(EventRequest req)
         {
-            //Tuple<string, string> urlTupel = Tuple.Create<string, string>(url, "fake response");
-            //return Task.Run<Tuple<string, string>>(() => urlTupel);
             Logger.Debug("\r\nGetDataAsync:  "
-                + "url: " + url + ", "
+                + "url: " + req.ToString() + ", "
                 + "thread id: " + Thread.CurrentThread.ManagedThreadId);
             Thread.Sleep(4000);
-            EventResponse tupel = EventResponse.Create(url, "fake content");
+            EventResponse tupel = EventResponse.Create(req, "fake content");
             return Task.Run<EventResponse>(() => tupel);
         }
 

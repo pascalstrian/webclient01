@@ -9,13 +9,13 @@ namespace WebClient
 {
     public class WebDAO : IWebDAO
     {
-        public async Task<EventResponse> GetDataAsync(string url)
+        public async Task<EventResponse> GetDataAsync(EventRequest req)
         {
             using (HttpClient client = new HttpClient())
             {
                 client.BaseAddress = new Uri("http://localhost:9000/");
-                string response = await client.GetStringAsync(url);
-                return EventResponse.Create(url, response);
+                string response = await client.GetStringAsync(req.ToString());
+                return EventResponse.Create(req, response);
             }
         }
 

@@ -12,7 +12,6 @@ namespace WebClient
 {
     public class WebClientClass
     {
-        public IList<string> FilesWritten { get; private set; } // deprecated because stateful
         private IWebDAO WebDao { get; set; }
         private ILog Logger { get; set; }
 
@@ -23,52 +22,19 @@ namespace WebClient
             this.Logger = logger ?? LogManager.GetLogger(typeof(WebClientClass));
         }
 
-        public void DownloadStateful(IEnumerable<string> urls)
+        public IEnumerable<string> DownloadUrls(IEnumerable<EventRequest> reqList, int numThreads = 1, bool splitByDay = false)
         {
-            Task webTask1 = WebDao.GetDataAsync(urls.ElementAt(0), WriteToFileStateful);
-            Task webTask2 = WebDao.GetDataAsync(urls.ElementAt(1), WriteToFileStateful);
-            Task.WaitAll(webTask1, webTask2);
-        }
-
-        public IEnumerable<string> DownloadUrls(IEnumerable<string> urls)
-        {
-            IList<Task<EventResponse>> tasks = urls
-                .Select(url => WebDao.GetDataAsync(url))
-                .ToList();
-            IEnumerable<string> fileNames = Task
-                .WhenAll<EventResponse>(tasks)
-                .Result
-                .Select(resTuple => WriteToFile(resTuple.Url, resTuple.Response));
-            return fileNames;
-        }
-
-        public IEnumerable<string> DownloadUrlsWithPLinq(IEnumerable<string> urls, int numThreads = 1)
-        {
-            List<string> result = urls
+            if (splitByDay) {
+                reqList = reqList.SelectMany(req => ToDayRequests(req));
+            }
+            IEnumerable<string> fileNames = reqList
                 .AsParallel()
                 .WithDegreeOfParallelism(numThreads)
-                .Select(url => WebDao.GetDataAsync(url).Result)
-                .Select(resTuple => WriteToFile(resTuple.Url, resTuple.Response))
-                .ToList();
-            return result;
-        }
-
-        public IEnumerable<string> DownloadRanges(IEnumerable<EventRequest> inList, int numThreads = 1) 
-        {
-            List<string> fileNames = inList
-                .AsParallel()
-                .WithDegreeOfParallelism(numThreads)
-                .SelectMany(req => ToDayRequests(req))
-                .Select(req => WebDao.GetDataAsync(req.ToString()).Result)
-                .Select(resTuple => WriteToFile(resTuple.Url, resTuple.Response))
-                .ToList();
-            List<string> fileNamesOrdered = fileNames
+                .Select(req => WebDao.GetDataAsync(req).Result)
+                .Select(res => WriteToFile(GetFileName(res.Request), res.Response))
                 .OrderBy(fileName => fileName)
                 .ToList();
-                //.GroupBy(paramList => paramList.Item1)
-                //.Select(grp => DownloadByItem1(grp.Key, grp.ToList()))
-                //.ToList();
-            return fileNamesOrdered;
+            return fileNames;
         }
 
         public static IEnumerable<EventRequest> ToDayRequests(EventRequest req)
@@ -82,20 +48,47 @@ namespace WebClient
             return dayRequests;
         }
 
-        private IEnumerable<string> DownloadByItem1(string key, List<Tuple<string, string>> list)
-        {
-            throw new NotImplementedException();
-        }
-
-        private string WriteToFile(string url, string pageResponse)
+        private string WriteToFile(string filename, string pageResponse)
         {
             //TODO: write pageResponse into file
             Logger.Debug("WriteToFile: "
-                + "url: " + url + ", "
+                + "file: " + filename + ", "
                 + "thread id: " + Thread.CurrentThread.ManagedThreadId);
-            string fileWritten = url + ".html";
-            return fileWritten;
+            return filename;
         }
+
+        private string GetFileName(EventRequest req)
+        {
+            return GetFileName(req.Channel, req.From, req.To);
+        }
+
+        private string GetFileName(string channel, DateTime from, DateTime? to = null)
+        {
+            return channel + "_" + from.ToString("yyyy-MM-dd") + "_" + to.Value.ToString("yyyy-MM-dd") + ".html";
+        }
+
+        #region deprecated methods
+
+        public IList<string> FilesWritten { get; private set; } // deprecated because stateful
+
+        public void DownloadStateful(IEnumerable<string> urls)
+        {
+            Task webTask1 = WebDao.GetDataAsync(urls.ElementAt(0), WriteToFileStateful);
+            Task webTask2 = WebDao.GetDataAsync(urls.ElementAt(1), WriteToFileStateful);
+            Task.WaitAll(webTask1, webTask2);
+        }
+
+        //public IEnumerable<string> DownloadUrlsWithTasks(IEnumerable<string> urls)
+        //{
+        //    IList<Task<EventResponse>> tasks = urls
+        //        .Select(url => WebDao.GetDataAsync(url))
+        //        .ToList();
+        //    IEnumerable<string> fileNames = Task
+        //        .WhenAll<EventResponse>(tasks)
+        //        .Result
+        //        .Select(resTuple => WriteToFile(resTuple.Request, resTuple.Response));
+        //    return fileNames;
+        //}
 
         private void WriteToFileStateful(string url, string pageResponse)
         {
@@ -103,5 +96,23 @@ namespace WebClient
             string fileWritten = url + ".html";
             FilesWritten.Add(fileWritten);
         }
+
+        public IEnumerable<string> DownloadUrlsSequential(IEnumerable<EventRequest> reqList, bool splitByDay = false)
+        {
+            if (splitByDay)
+            {
+                reqList = reqList.SelectMany(req => ToDayRequests(req));
+            }
+            IEnumerable<string> fileNames = reqList
+                .Select(req => WebDao.GetDataAsync(req).Result)
+                .Select(resTuple => WriteToFile(GetFileName(resTuple.Request), resTuple.Response))
+                .ToList();
+            List<string> fileNamesOrdered = fileNames
+                .OrderBy(fileName => fileName)
+                .ToList();
+            return fileNamesOrdered;
+        }
+
+        #endregion
     }
 }

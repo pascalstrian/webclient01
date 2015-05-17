@@ -8,7 +8,7 @@ namespace WebClient
 {
     public interface IWebDAO
     {
-        Task<EventResponse> GetDataAsync(string url);
+        Task<EventResponse> GetDataAsync(EventRequest req);
         Task GetDataAsync(string url, Action<string, string> processAction);
     }
 }
