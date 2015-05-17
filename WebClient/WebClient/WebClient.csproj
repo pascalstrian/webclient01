@@ -52,6 +52,7 @@
   <ItemGroup>
     <Compile Include="EventRequest.cs" />
     <Compile Include="EventResponse.cs" />
+    <Compile Include="FileDescriptor.cs" />
     <Compile Include="IWebDAO.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TimeRange.cs" />

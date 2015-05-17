@@ -22,20 +22,45 @@ namespace WebClient
             this.Logger = logger ?? LogManager.GetLogger(typeof(WebClientClass));
         }
 
-        public IEnumerable<string> DownloadUrls(IEnumerable<EventRequest> reqList, int numThreads = 1, bool splitByDay = false)
+        public IEnumerable<string> DownloadUrls(IEnumerable<EventRequest> reqList, int numThreads = 1, bool splitByDay = false, bool doZip = false)
         {
             if (splitByDay) {
                 reqList = reqList.SelectMany(req => ToDayRequests(req));
             }
-            IEnumerable<string> fileNames = reqList
+            IEnumerable<FileDescriptor> fileDescList = reqList
                 .AsParallel()
                 .WithDegreeOfParallelism(numThreads)
                 .Select(req => WebDao.GetDataAsync(req).Result)
-                .Select(res => WriteToFile(GetFileName(res.Request), res.Response))
-                .OrderBy(fileName => fileName)
+                .Select(res => WriteToFile(GetFileName(res.Request), res))
                 .ToList();
-            return fileNames;
+            IEnumerable<string> outFiles = fileDescList
+                .Select(desc => desc.Filename)
+                .OrderBy(file => file);
+            if (doZip) {
+                outFiles = fileDescList
+                    .GroupBy(fileDesc => GetZipFileName(fileDesc))
+                    .Select(grp => WriteToZip(grp.Key, grp.ToList()))
+                    .OrderBy(zipFile => zipFile);
+            }
+            return outFiles;
         }
+
+        private string WriteToZip(string key, List<FileDescriptor> files)
+        {
+            //TODO: store files into zip archive!
+            string dir = ".";        //todo
+            string zipWritten = key; //todo
+            IEnumerable<string> filesToZip = files.Select(desc => desc.Filename);
+            return zipWritten;
+        }
+
+        private string GetZipFileName(FileDescriptor fileDesc)
+        {
+            string zipName = fileDesc.Channel;
+            return zipName;
+        }
+
+
 
         public static IEnumerable<EventRequest> ToDayRequests(EventRequest req)
         {
@@ -46,6 +71,15 @@ namespace WebClient
                 .Select(day => TimeRange.DayListToRange(new List<DateTime>() { day }))         // b
                 .Select(range => EventRequest.Create(req.Channel, range.From, range.To));      // c
             return dayRequests;
+        }
+
+        private FileDescriptor WriteToFile(string filename, EventResponse response)
+        {
+            EventRequest req = response.Request;
+            string dir = "."; //todo
+            string fileWritten = WriteToFile(filename, response.Response);
+            FileDescriptor fileDesc = new FileDescriptor(dir, fileWritten, req.Channel, req.From, req.To);
+            return fileDesc;
         }
 
         private string WriteToFile(string filename, string pageResponse)

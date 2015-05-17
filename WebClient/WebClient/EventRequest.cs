@@ -9,8 +9,11 @@ namespace WebClient
     public class EventRequest
     {
         public string Channel { get; set; }
+
         public DateTime From { get; set; }
+
         public DateTime To { get; set; }
+
         public static EventRequest Create(string channel, DateTime from, DateTime to)
         {
             EventRequest tuple = new EventRequest();
