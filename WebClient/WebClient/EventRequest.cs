@@ -19,6 +19,7 @@ namespace WebClient
             tuple.To = to;
             return tuple;
         }
+
         public override string ToString()
         {
             return "channel=" + Channel + "&"
@@ -29,12 +30,10 @@ namespace WebClient
         public override bool Equals(object obj)
         {
             EventRequest other = obj as EventRequest;
-            if (other == null)
-            {
+            if (other == null) {
                 return false;
             }
-            else
-            {
+            else {
                 return this.Channel == other.Channel && this.From == other.From && this.To == other.To;
             }
         }

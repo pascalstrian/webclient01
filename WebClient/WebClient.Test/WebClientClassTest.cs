@@ -33,62 +33,47 @@ namespace WebClient.Test
         }
 
         [Test]
-        [Ignore("deprecated")]
-        public void DownloadUrls_in_out()
+        public void DownloadUrls_SplitByDay_Returns10x5Files()
         {
             //Arrange
             IWebDAO webDAO = new WebDAOFake(Logger);
-            WebClientClass webClient = new WebClientClass(webDAO);
-            IEnumerable<string> urls = new List<string>() { "url1", "url2", "url3" };
-
-            //Act
-            IEnumerable<string> filesWritten = webClient.DownloadUrls(urls);
-
-            //Assert
-            Assert.IsNotEmpty(filesWritten);
-            Assert.AreEqual("url1.html", filesWritten.ElementAt(0));
-            Assert.AreEqual("url2.html", filesWritten.ElementAt(1));
-            Assert.AreEqual("url3.html", filesWritten.ElementAt(2));
-        }
-
-        [Test]
-        [Ignore("ok but slow")]
-        public void DownloadUrlwithPLinq_in_out()
-        {
-            //Arrange
-            IWebDAO webDAO = new WebDAOFake(Logger);
-            WebClientClass webClient = new WebClientClass(webDAO);
-            IEnumerable<string> urls = new List<string>() { "url0", "url1", "url2", "url3", "url4", "url5","url6", "url7", "url8", "url9" };
-
-            //Act
-            IEnumerable<string> filesWritten = webClient.DownloadUrlsWithPLinq(urls, 8);
-
-            //Assert
-            Assert.IsNotEmpty(filesWritten);
-            Assert.AreEqual("url0.html", filesWritten.ElementAt(0));
-            Assert.AreEqual("url1.html", filesWritten.ElementAt(1));
-            Assert.AreEqual("url2.html", filesWritten.ElementAt(2));
-        }
-
-        [Test]
-        public void DownloadRanges_in_out()
-        {
-            //Arrange
-            IWebDAO webDAO = new WebDAOFake(Logger);
-            WebClientClass webClient = new WebClientClass(webDAO);
+            WebClientClass webClient = new WebClientClass(webDAO, Logger);
             IEnumerable<string> channels = new List<string>() { "chan0", "chan1", "chan2", "chan3", "chan4", "chan5", "chan6", "chan7", "chan8", "chan9" };
             IEnumerable<EventRequest> requests = channels
                 .Select(url => EventRequest.Create(url, new DateTime(2015, 01, 01), new DateTime(2015, 01, 05)));
 
             //Act
-            IEnumerable<string> filesWritten = webClient.DownloadRanges(requests, 8);
+            IEnumerable<string> filesWritten = webClient.DownloadUrls(requests, numThreads: 8, splitByDay: true);
 
             //Assert
             Logger.Info("filesWritten:\r\n" + string.Join("\r\n", filesWritten.Select(file => file.ToString())));
             Assert.IsNotEmpty(filesWritten);
-            Assert.AreEqual("channel=chan0&from=2015-01-01&to=2015-01-01.html", filesWritten.ElementAt(0));
-            Assert.AreEqual("channel=chan0&from=2015-01-02&to=2015-01-02.html", filesWritten.ElementAt(1));
-            Assert.AreEqual("channel=chan1&from=2015-01-01&to=2015-01-01.html", filesWritten.ElementAt(5));
+            Assert.AreEqual(50, filesWritten.Count());
+            Assert.AreEqual("chan0_2015-01-01_2015-01-01.html", filesWritten.ElementAt(0));
+            Assert.AreEqual("chan0_2015-01-02_2015-01-02.html", filesWritten.ElementAt(1));
+            Assert.AreEqual("chan1_2015-01-01_2015-01-01.html", filesWritten.ElementAt(5));
+        }
+
+        [Test]
+        public void DownloadUrls_ByRange_Returns10Files()
+        {
+            //Arrange
+            IWebDAO webDAO = new WebDAOFake(Logger);
+            WebClientClass webClient = new WebClientClass(webDAO, Logger);
+            IEnumerable<string> channels = new List<string>() { "chan0", "chan1", "chan2", "chan3", "chan4", "chan5", "chan6", "chan7", "chan8", "chan9" };
+            IEnumerable<EventRequest> requests = channels
+                .Select(url => EventRequest.Create(url, new DateTime(2015, 01, 01), new DateTime(2015, 01, 05)));
+
+            //Act
+            IEnumerable<string> filesWritten = webClient.DownloadUrls(requests, numThreads: 8, splitByDay: false);
+
+            //Assert
+            Logger.Info("filesWritten:\r\n" + string.Join("\r\n", filesWritten.Select(file => file.ToString())));
+            Assert.IsNotEmpty(filesWritten);
+            Assert.AreEqual(10, filesWritten.Count());
+            Assert.AreEqual("chan0_2015-01-01_2015-01-05.html", filesWritten.ElementAt(0));
+            Assert.AreEqual("chan1_2015-01-01_2015-01-05.html", filesWritten.ElementAt(1));
+            Assert.AreEqual("chan2_2015-01-01_2015-01-05.html", filesWritten.ElementAt(2));
         }
 
         [Test]

@@ -14,10 +14,10 @@ namespace WebClient
 
         public static EventResponse Create(EventRequest req, string response)
         {
-            EventResponse tuple = new EventResponse();
-            tuple.Request = req;
-            tuple.Response = response;
-            return tuple;
+            EventResponse resp = new EventResponse();
+            resp.Request = req;
+            resp.Response = response;
+            return resp;
         }
     }
 }
