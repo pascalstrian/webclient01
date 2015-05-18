@@ -46,7 +46,7 @@ namespace WebClient.Test
                 .Select(url => EventRequest.Create(url, new DateTime(2015, 01, 01), new DateTime(2015, 01, 05)));
 
             //Act
-            IEnumerable<string> filesWritten = webClient.DownloadUrls(requests, numThreads: 8, splitByDay: true);
+            IEnumerable<string> filesWritten = webClient.DoWork(requests, numThreads: 8, splitByDay: true);
 
             //Assert
             Logger.Info("\r\nfilesWritten:\r\n" + string.Join("\r\n", filesWritten.Select(file => file.ToString())));
@@ -69,7 +69,7 @@ namespace WebClient.Test
                 .Select(url => EventRequest.Create(url, new DateTime(2015, 01, 01), new DateTime(2015, 01, 05)));
 
             //Act
-            IEnumerable<string> filesWritten = webClient.DownloadUrls(requests, numThreads: 8, splitByDay: true, doZip: true);
+            IEnumerable<string> filesWritten = webClient.DoWork(requests, numThreads: 8, splitByDay: true, doZip: true);
 
             //Assert
             Logger.Info("\r\nfilesWritten:\r\n" + string.Join("\r\n", filesWritten.Select(file => file.ToString())));
@@ -92,7 +92,7 @@ namespace WebClient.Test
                 .Select(url => EventRequest.Create(url, new DateTime(2015, 01, 01), new DateTime(2015, 01, 05)));
 
             //Act
-            IEnumerable<string> filesWritten = webClient.DownloadUrls(requests, numThreads: 8, splitByDay: false);
+            IEnumerable<string> filesWritten = webClient.DoWork(requests, numThreads: 8, splitByDay: false);
 
             //Assert
             Logger.Info("\r\nfilesWritten:\r\n" + string.Join("\r\n", filesWritten.Select(file => file.ToString())));

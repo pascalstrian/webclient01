@@ -22,38 +22,59 @@ namespace WebClient
             this.Logger = logger ?? LogManager.GetLogger(typeof(WebClientClass));
         }
 
-        public IEnumerable<string> DownloadUrls(IEnumerable<EventRequest> reqList, int numThreads = 1, bool splitByDay = false, bool doZip = false)
+        public IEnumerable<string> DoWork(IEnumerable<EventRequest> reqList, int numThreads = 1, bool splitByDay = false, bool doZip = false)
         {
-            //a) partition requests (by day,...)
+            IEnumerable<EventRequest> requests = PartitionRequests(reqList, splitByDay);
+            IEnumerable<FileDescriptor> fileDescList = DownloadData(numThreads, requests);
+            IEnumerable<string> outFiles = fileDescList.Select(desc => desc.Filename);
+            if (doZip) {
+                outFiles = PackFiles(numThreads, fileDescList);
+            }
+            //d) move files in toSend:
+            IEnumerable<string> movedFiles = MoveFiles(outFiles);
+            return outFiles;
+        }
+
+        private static IEnumerable<EventRequest> PartitionRequests(IEnumerable<EventRequest> reqList, bool splitByDay)
+        {
             IEnumerable<EventRequest> requests = reqList;
             if (splitByDay) {
                 requests = reqList.SelectMany(req => ToDayRequests(req));
             }
+            return requests;
+        }
 
-            //b) download and store responses:
+        private IEnumerable<FileDescriptor> DownloadData(int numThreads, IEnumerable<EventRequest> requests)
+        {
             IEnumerable<EventResponse> responseList = requests
                 .AsParallel()
                 .WithDegreeOfParallelism(numThreads)
                 .Select(req => WebDao.GetDataAsync(req).Result);
             IEnumerable<FileDescriptor> fileDescList = responseList
                 .Select(res => WriteToFile(GetFileName(res.Request), res))
+                .OrderBy(desc => desc.Filename)
                 .ToList();
+            return fileDescList;
+        }
+
+        private IEnumerable<string> PackFiles(int numThreads, IEnumerable<FileDescriptor> fileDescList)
+        {
             IEnumerable<string> outFiles = fileDescList
-                .Select(desc => desc.Filename)
-                .OrderBy(file => file);
-
-            //c) pack files:
-            if (doZip) {
-                outFiles = fileDescList
-                    .AsParallel()
-                    .WithDegreeOfParallelism(numThreads)
-                    .GroupBy(fileDesc => GetZipFileName(fileDesc))
-                    .Select(grp => WriteToZip(grp.Key, grp.ToList()))
-                    .OrderBy(zipFile => zipFile);
-            }
-
-            //d) move files in toSend:
+                .AsParallel()
+                .WithDegreeOfParallelism(numThreads)
+                .GroupBy(fileDesc => GetZipFileName(fileDesc))
+                .Select(grp => WriteToZip(grp.Key, grp.ToList()))
+                .OrderBy(zipFile => zipFile);
             return outFiles;
+        }
+
+        private IEnumerable<string> MoveFiles(IEnumerable<string> outFiles)
+        {
+            //TODO: more files from sourceDir to targetDir!
+            string sourceDir = "Work";
+            string targetDir = "ToSend";
+            IEnumerable<string> movedFiles = outFiles.Select(file => targetDir + "\\" + file);
+            return movedFiles;
         }
 
         private string WriteToZip(string key, List<FileDescriptor> files)
@@ -73,8 +94,6 @@ namespace WebClient
             return zipName;
         }
 
-
-
         public static IEnumerable<EventRequest> ToDayRequests(EventRequest req)
         {
             // a) expand all days from range
@@ -90,7 +109,7 @@ namespace WebClient
         {
             EventRequest req = response.Request;
             string dir = "."; //todo
-            string fileWritten = WriteToFile(filename, response.Response);
+            string fileWritten = WriteToFile(filename, response.Content);
             FileDescriptor fileDesc = new FileDescriptor(dir, fileWritten, req.Channel, req.From, req.To);
             return fileDesc;
         }
@@ -152,7 +171,7 @@ namespace WebClient
             }
             IEnumerable<string> fileNames = reqList
                 .Select(req => WebDao.GetDataAsync(req).Result)
-                .Select(resTuple => WriteToFile(GetFileName(resTuple.Request), resTuple.Response))
+                .Select(resTuple => WriteToFile(GetFileName(resTuple.Request), resTuple.Content))
                 .ToList();
             List<string> fileNamesOrdered = fileNames
                 .OrderBy(fileName => fileName)

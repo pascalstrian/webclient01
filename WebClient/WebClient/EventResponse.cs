@@ -10,13 +10,13 @@ namespace WebClient
     {
         public EventRequest Request { get; set; }
 
-        public string Response { get; set; }
+        public string Content { get; set; }
 
         public static EventResponse Create(EventRequest req, string response)
         {
             EventResponse resp = new EventResponse();
             resp.Request = req;
-            resp.Response = response;
+            resp.Content = response;
             return resp;
         }
     }
