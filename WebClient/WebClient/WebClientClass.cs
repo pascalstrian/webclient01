@@ -24,24 +24,35 @@ namespace WebClient
 
         public IEnumerable<string> DownloadUrls(IEnumerable<EventRequest> reqList, int numThreads = 1, bool splitByDay = false, bool doZip = false)
         {
+            //a) partition requests (by day,...)
+            IEnumerable<EventRequest> requests = reqList;
             if (splitByDay) {
-                reqList = reqList.SelectMany(req => ToDayRequests(req));
+                requests = reqList.SelectMany(req => ToDayRequests(req));
             }
-            IEnumerable<FileDescriptor> fileDescList = reqList
+
+            //b) download and store responses:
+            IEnumerable<EventResponse> responseList = requests
                 .AsParallel()
                 .WithDegreeOfParallelism(numThreads)
-                .Select(req => WebDao.GetDataAsync(req).Result)
+                .Select(req => WebDao.GetDataAsync(req).Result);
+            IEnumerable<FileDescriptor> fileDescList = responseList
                 .Select(res => WriteToFile(GetFileName(res.Request), res))
                 .ToList();
             IEnumerable<string> outFiles = fileDescList
                 .Select(desc => desc.Filename)
                 .OrderBy(file => file);
+
+            //c) pack files:
             if (doZip) {
                 outFiles = fileDescList
+                    .AsParallel()
+                    .WithDegreeOfParallelism(numThreads)
                     .GroupBy(fileDesc => GetZipFileName(fileDesc))
                     .Select(grp => WriteToZip(grp.Key, grp.ToList()))
                     .OrderBy(zipFile => zipFile);
             }
+
+            //d) move files in toSend:
             return outFiles;
         }
 
@@ -51,12 +62,14 @@ namespace WebClient
             string dir = ".";        //todo
             string zipWritten = key; //todo
             IEnumerable<string> filesToZip = files.Select(desc => desc.Filename);
+            Logger.Debug("\r\nzipWritten: " + zipWritten
+                + "\r\nthread: " + Thread.CurrentThread.ManagedThreadId);
             return zipWritten;
         }
 
         private string GetZipFileName(FileDescriptor fileDesc)
         {
-            string zipName = fileDesc.Channel;
+            string zipName = fileDesc.Channel + ".zip";
             return zipName;
         }
 
